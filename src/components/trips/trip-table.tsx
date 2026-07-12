@@ -121,7 +121,7 @@ export function TripTable({
         </SelectContent>
       </Select>
 
-      <div className="rounded-xl border">
+      <div className="overflow-hidden rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
