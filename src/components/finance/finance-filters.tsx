@@ -13,6 +13,7 @@ import type { Vehicle } from "@/db/schema";
 export const ALL_VALUE = "all";
 
 export type FinanceFilterState = {
+  search: string;
   vehicleId: string;
   dateFrom: string;
   dateTo: string;
@@ -36,6 +37,12 @@ export function FinanceFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <Input
+        placeholder="Search logs/expenses..."
+        value={filters.search || ""}
+        onChange={(e) => update("search", e.target.value)}
+        className="w-56"
+      />
       <Select value={filters.vehicleId} onValueChange={(value) => update("vehicleId", value ?? ALL_VALUE)}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Vehicle" />

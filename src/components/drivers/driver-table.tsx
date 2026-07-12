@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortHeader, type SortDirection } from "@/components/ui/sort-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Dialog,
@@ -63,21 +64,68 @@ export function DriverTable({ drivers }: { drivers: Driver[] }) {
   const [filters, setFilters] = useState<DriverFilterState>(EMPTY_FILTERS);
   const [suspendTarget, setSuspendTarget] = useState<Driver | null>(null);
   const [isSuspending, setIsSuspending] = useState(false);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  function handleSort(key: string) {
+    if (sortKey === key) {
+      if (sortDir === "asc") {
+        setSortDir("desc");
+      } else if (sortDir === "desc") {
+        setSortKey(null);
+        setSortDir(null);
+      } else {
+        setSortDir("asc");
+      }
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   const filtered = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     return drivers.filter((d) => {
-      if (
-        search &&
-        !d.name.toLowerCase().includes(search) &&
-        !d.licenseNumber.toLowerCase().includes(search)
-      )
-        return false;
+      if (search) {
+        const name = d.name.toLowerCase();
+        const lic = d.licenseNumber.toLowerCase();
+        const cat = d.licenseCategory.toLowerCase();
+        const status = DRIVER_STATUS_LABELS[d.status].toLowerCase();
+        if (
+          !name.includes(search) &&
+          !lic.includes(search) &&
+          !cat.includes(search) &&
+          !status.includes(search)
+        )
+          return false;
+      }
       if (filters.status !== ALL_VALUE && d.status !== filters.status)
         return false;
       return true;
     });
   }, [drivers, filters]);
+
+  const sorted = useMemo(() => {
+    if (!sortKey || !sortDir) return filtered;
+    return [...filtered].sort((a, b) => {
+      let valA: any = a[sortKey as keyof Driver];
+      let valB: any = b[sortKey as keyof Driver];
+
+      if (sortKey === "status") {
+        valA = DRIVER_STATUS_LABELS[a.status];
+        valB = DRIVER_STATUS_LABELS[b.status];
+      }
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return sortDir === "asc"
+        ? strA.localeCompare(strB)
+        : strB.localeCompare(strA);
+    });
+  }, [filtered, sortKey, sortDir]);
 
   async function handleSuspend() {
     if (!suspendTarget) return;
@@ -119,17 +167,54 @@ export function DriverTable({ drivers }: { drivers: Driver[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>License No.</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>License Expiry</TableHead>
-              <TableHead className="text-right">Safety Score</TableHead>
-              <TableHead>Status</TableHead>
+              <SortHeader
+                label="Name"
+                columnKey="name"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortHeader
+                label="License No."
+                columnKey="licenseNumber"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortHeader
+                label="Category"
+                columnKey="licenseCategory"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortHeader
+                label="License Expiry"
+                columnKey="licenseExpiry"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortHeader
+                label="Safety Score"
+                columnKey="safetyScore"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+                align="right"
+              />
+              <SortHeader
+                label="Status"
+                columnKey="status"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   {drivers.length === 0
@@ -138,7 +223,7 @@ export function DriverTable({ drivers }: { drivers: Driver[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((driver) => (
+              sorted.map((driver) => (
                 <TableRow key={driver.id}>
                   <TableCell className="font-medium">{driver.name}</TableCell>
                   <TableCell>{driver.licenseNumber}</TableCell>
