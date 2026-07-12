@@ -25,7 +25,7 @@ export function Topbar({ name, role }: { name: string; role: Role }) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b px-4">
+    <header className="flex h-14 items-center justify-between border-b px-4 print:hidden">
       <span className="text-sm font-semibold">TransitOps</span>
       <div className="flex items-center gap-2 sm:gap-3">
         <span className="hidden text-sm sm:inline">{name}</span>

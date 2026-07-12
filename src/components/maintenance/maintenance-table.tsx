@@ -26,6 +26,7 @@ import {
   MaintenanceOpenDialog,
   type EligibleVehicle,
 } from "@/components/maintenance/maintenance-open-dialog";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { MAINTENANCE_STATUS_LABELS, MAINTENANCE_STATUS_TONES } from "@/lib/labels/maintenance";
 
 export type MaintenanceLogRow = {
@@ -49,17 +50,20 @@ export function MaintenanceTable({
 }) {
   const [statusFilter, setStatusFilter] = useState(ALL_VALUE);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [closeTarget, setCloseTarget] = useState<MaintenanceLogRow | null>(null);
 
   const filtered = useMemo(
     () => (statusFilter === ALL_VALUE ? logs : logs.filter((l) => l.status === statusFilter)),
     [logs, statusFilter]
   );
 
-  async function handleClose(logId: string) {
-    setClosingId(logId);
+  async function handleClose() {
+    if (!closeTarget) return;
+    setClosingId(closeTarget.id);
     try {
-      await closeMaintenance(logId);
+      await closeMaintenance(closeTarget.id);
       toast.success("Maintenance closed");
+      setCloseTarget(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not close maintenance");
     } finally {
@@ -132,7 +136,7 @@ export function MaintenanceTable({
                         variant="outline"
                         size="sm"
                         disabled={closingId === log.id}
-                        onClick={() => handleClose(log.id)}
+                        onClick={() => setCloseTarget(log)}
                       >
                         {closingId === log.id ? "Closing..." : "Close"}
                       </Button>
@@ -144,6 +148,20 @@ export function MaintenanceTable({
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialog
+        open={!!closeTarget}
+        onOpenChange={(open) => !open && setCloseTarget(null)}
+        title="Close maintenance log?"
+        description={
+          closeTarget
+            ? `${closeTarget.vehicleRegistration} will be marked available again (unless it has since been retired).`
+            : ""
+        }
+        confirmLabel="Close log"
+        isConfirming={!!closingId}
+        onConfirm={handleClose}
+      />
     </div>
   );
 }

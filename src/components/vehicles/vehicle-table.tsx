@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { retireVehicle } from "@/actions/vehicles";
@@ -197,7 +198,11 @@ export function VehicleTable({ vehicles }: { vehicles: Vehicle[] }) {
             ) : (
               sorted.map((vehicle) => (
                 <TableRow key={vehicle.id}>
-                  <TableCell className="font-medium">{vehicle.registrationNumber}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/vehicles/${vehicle.id}`} className="hover:underline">
+                      {vehicle.registrationNumber}
+                    </Link>
+                  </TableCell>
                   <TableCell>{VEHICLE_TYPE_LABELS[vehicle.type]}</TableCell>
                   <TableCell className="text-right">{vehicle.capacityKg.toLocaleString()}</TableCell>
                   <TableCell>{vehicle.region}</TableCell>
