@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortHeader, type SortDirection } from "@/components/ui/sort-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels/finance";
 import {
@@ -23,6 +24,7 @@ import { FuelLogFormDialog } from "@/components/finance/fuel-log-form-dialog";
 import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
 
 const EMPTY_FILTERS: FinanceFilterState = {
+  search: "",
   vehicleId: ALL_VALUE,
   dateFrom: "",
   dateTo: "",
@@ -44,12 +46,27 @@ function formatCurrency(value: string | number) {
 
 function filterByVehicleAndDate<T extends { vehicleId: string; date: string }>(
   items: T[],
-  filters: FinanceFilterState
+  filters: FinanceFilterState,
+  vehicleMap: Map<string, string>,
+  tripMap: Map<string, string>,
+  getSearchText?: (item: T) => string[]
 ): T[] {
   return items.filter((item) => {
     if (filters.vehicleId !== ALL_VALUE && item.vehicleId !== filters.vehicleId) return false;
     if (filters.dateFrom && item.date < filters.dateFrom) return false;
     if (filters.dateTo && item.date > filters.dateTo) return false;
+
+    const search = (filters.search || "").trim().toLowerCase();
+    if (search) {
+      const vReg = (vehicleMap.get(item.vehicleId) ?? item.vehicleId).toLowerCase();
+      const tName = ("tripId" in item && typeof (item as any).tripId === "string" && (item as any).tripId
+        ? (tripMap.get((item as any).tripId) ?? "")
+        : "").toLowerCase();
+      const extra = getSearchText ? getSearchText(item).map((s) => s.toLowerCase()) : [];
+      if (!vReg.includes(search) && !tName.includes(search) && !extra.some((e) => e.includes(search))) {
+        return false;
+      }
+    }
     return true;
   });
 }
@@ -129,23 +146,131 @@ export function FinanceTabs({
   const [fuelFilters, setFuelFilters] = useState<FinanceFilterState>(EMPTY_FILTERS);
   const [expenseFilters, setExpenseFilters] = useState<FinanceFilterState>(EMPTY_FILTERS);
 
+  const [fuelSortKey, setFuelSortKey] = useState<string | null>(null);
+  const [fuelSortDir, setFuelSortDir] = useState<SortDirection>(null);
+
+  const [expSortKey, setExpSortKey] = useState<string | null>(null);
+  const [expSortDir, setExpSortDir] = useState<SortDirection>(null);
+
+  const [costSortKey, setCostSortKey] = useState<string | null>("totalCost");
+  const [costSortDir, setCostSortDir] = useState<SortDirection>("desc");
+
+  function handleFuelSort(key: string) {
+    if (fuelSortKey === key) {
+      if (fuelSortDir === "asc") setFuelSortDir("desc");
+      else if (fuelSortDir === "desc") { setFuelSortKey(null); setFuelSortDir(null); }
+      else setFuelSortDir("asc");
+    } else { setFuelSortKey(key); setFuelSortDir("asc"); }
+  }
+
+  function handleExpSort(key: string) {
+    if (expSortKey === key) {
+      if (expSortDir === "asc") setExpSortDir("desc");
+      else if (expSortDir === "desc") { setExpSortKey(null); setExpSortDir(null); }
+      else setExpSortDir("asc");
+    } else { setExpSortKey(key); setExpSortDir("asc"); }
+  }
+
+  function handleCostSort(key: string) {
+    if (costSortKey === key) {
+      if (costSortDir === "asc") setCostSortDir("desc");
+      else if (costSortDir === "desc") { setCostSortKey(null); setCostSortDir(null); }
+      else setCostSortDir("asc");
+    } else { setCostSortKey(key); setCostSortDir("asc"); }
+  }
+
   const vehicleMap = useMemo(() => buildVehicleMap(vehicles), [vehicles]);
   const tripMap = useMemo(() => buildTripMap(trips), [trips]);
 
   const filteredFuel = useMemo(
-    () => filterByVehicleAndDate(fuelLogs, fuelFilters),
-    [fuelLogs, fuelFilters]
+    () => filterByVehicleAndDate(fuelLogs, fuelFilters, vehicleMap, tripMap, (fl) => [fl.liters, fl.cost, fl.date]),
+    [fuelLogs, fuelFilters, vehicleMap, tripMap]
   );
 
+  const sortedFuel = useMemo(() => {
+    if (!fuelSortKey || !fuelSortDir) return filteredFuel;
+    return [...filteredFuel].sort((a, b) => {
+      let valA: any = a[fuelSortKey as keyof FuelLog];
+      let valB: any = b[fuelSortKey as keyof FuelLog];
+
+      if (fuelSortKey === "vehicle") {
+        valA = vehicleMap.get(a.vehicleId) ?? a.vehicleId;
+        valB = vehicleMap.get(b.vehicleId) ?? b.vehicleId;
+      } else if (fuelSortKey === "trip") {
+        valA = a.tripId ? tripMap.get(a.tripId) ?? "" : "";
+        valB = b.tripId ? tripMap.get(b.tripId) ?? "" : "";
+      } else if (fuelSortKey === "liters" || fuelSortKey === "cost") {
+        valA = parseFloat(a[fuelSortKey]);
+        valB = parseFloat(b[fuelSortKey]);
+      }
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return fuelSortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return fuelSortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [filteredFuel, fuelSortKey, fuelSortDir, vehicleMap, tripMap]);
+
   const filteredExpenses = useMemo(
-    () => filterByVehicleAndDate(expenses, expenseFilters),
-    [expenses, expenseFilters]
+    () =>
+      filterByVehicleAndDate(expenses, expenseFilters, vehicleMap, tripMap, (ex) => [
+        EXPENSE_CATEGORY_LABELS[ex.category] || ex.category,
+        ex.amount,
+        ex.note ?? "",
+        ex.date,
+      ]),
+    [expenses, expenseFilters, vehicleMap, tripMap]
   );
+
+  const sortedExpenses = useMemo(() => {
+    if (!expSortKey || !expSortDir) return filteredExpenses;
+    return [...filteredExpenses].sort((a, b) => {
+      let valA: any = a[expSortKey as keyof Expense];
+      let valB: any = b[expSortKey as keyof Expense];
+
+      if (expSortKey === "vehicle") {
+        valA = vehicleMap.get(a.vehicleId) ?? a.vehicleId;
+        valB = vehicleMap.get(b.vehicleId) ?? b.vehicleId;
+      } else if (expSortKey === "trip") {
+        valA = a.tripId ? tripMap.get(a.tripId) ?? "" : "";
+        valB = b.tripId ? tripMap.get(b.tripId) ?? "" : "";
+      } else if (expSortKey === "category") {
+        valA = EXPENSE_CATEGORY_LABELS[a.category] || a.category;
+        valB = EXPENSE_CATEGORY_LABELS[b.category] || b.category;
+      } else if (expSortKey === "amount") {
+        valA = parseFloat(a.amount);
+        valB = parseFloat(b.amount);
+      }
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return expSortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return expSortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [filteredExpenses, expSortKey, expSortDir, vehicleMap, tripMap]);
 
   const costRows = useMemo(
     () => computeCostPerVehicle(fuelLogs, expenses, vehicleMap),
     [fuelLogs, expenses, vehicleMap]
   );
+
+  const sortedCostRows = useMemo(() => {
+    if (!costSortKey || !costSortDir) return costRows;
+    return [...costRows].sort((a, b) => {
+      const valA: any = a[costSortKey as keyof CostRow];
+      const valB: any = b[costSortKey as keyof CostRow];
+      if (typeof valA === "number" && typeof valB === "number") {
+        return costSortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return costSortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [costRows, costSortKey, costSortDir]);
 
   return (
     <div className="grid gap-4">
@@ -180,15 +305,47 @@ export function FinanceTabs({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Trip</TableHead>
-                    <TableHead className="text-right">Liters</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                    <TableHead>Date</TableHead>
+                    <SortHeader
+                      label="Vehicle"
+                      columnKey="vehicle"
+                      sortKey={fuelSortKey}
+                      sortDir={fuelSortDir}
+                      onSort={handleFuelSort}
+                    />
+                    <SortHeader
+                      label="Trip"
+                      columnKey="trip"
+                      sortKey={fuelSortKey}
+                      sortDir={fuelSortDir}
+                      onSort={handleFuelSort}
+                    />
+                    <SortHeader
+                      label="Liters"
+                      columnKey="liters"
+                      sortKey={fuelSortKey}
+                      sortDir={fuelSortDir}
+                      onSort={handleFuelSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Cost"
+                      columnKey="cost"
+                      sortKey={fuelSortKey}
+                      sortDir={fuelSortDir}
+                      onSort={handleFuelSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Date"
+                      columnKey="date"
+                      sortKey={fuelSortKey}
+                      sortDir={fuelSortDir}
+                      onSort={handleFuelSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredFuel.length === 0 ? (
+                  {sortedFuel.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                         {fuelLogs.length === 0
@@ -197,7 +354,7 @@ export function FinanceTabs({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredFuel.map((fl) => (
+                    sortedFuel.map((fl) => (
                       <TableRow key={fl.id}>
                         <TableCell className="font-medium">
                           {vehicleMap.get(fl.vehicleId) ?? fl.vehicleId}
@@ -241,16 +398,53 @@ export function FinanceTabs({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Trip</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Note</TableHead>
-                    <TableHead>Date</TableHead>
+                    <SortHeader
+                      label="Vehicle"
+                      columnKey="vehicle"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                    />
+                    <SortHeader
+                      label="Trip"
+                      columnKey="trip"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                    />
+                    <SortHeader
+                      label="Category"
+                      columnKey="category"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                    />
+                    <SortHeader
+                      label="Amount"
+                      columnKey="amount"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Note"
+                      columnKey="note"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                    />
+                    <SortHeader
+                      label="Date"
+                      columnKey="date"
+                      sortKey={expSortKey}
+                      sortDir={expSortDir}
+                      onSort={handleExpSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpenses.length === 0 ? (
+                  {sortedExpenses.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                         {expenses.length === 0
@@ -259,7 +453,7 @@ export function FinanceTabs({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredExpenses.map((ex) => (
+                    sortedExpenses.map((ex) => (
                       <TableRow key={ex.id}>
                         <TableCell className="font-medium">
                           {vehicleMap.get(ex.vehicleId) ?? ex.vehicleId}
@@ -293,21 +487,48 @@ export function FinanceTabs({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead className="text-right">Fuel Cost</TableHead>
-                    <TableHead className="text-right">Expenses</TableHead>
-                    <TableHead className="text-right">Total Cost</TableHead>
+                    <SortHeader
+                      label="Vehicle"
+                      columnKey="registration"
+                      sortKey={costSortKey}
+                      sortDir={costSortDir}
+                      onSort={handleCostSort}
+                    />
+                    <SortHeader
+                      label="Fuel Cost"
+                      columnKey="fuelCost"
+                      sortKey={costSortKey}
+                      sortDir={costSortDir}
+                      onSort={handleCostSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Expenses"
+                      columnKey="expenseCost"
+                      sortKey={costSortKey}
+                      sortDir={costSortDir}
+                      onSort={handleCostSort}
+                      align="right"
+                    />
+                    <SortHeader
+                      label="Total Cost"
+                      columnKey="totalCost"
+                      sortKey={costSortKey}
+                      sortDir={costSortDir}
+                      onSort={handleCostSort}
+                      align="right"
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {costRows.length === 0 ? (
+                  {sortedCostRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                         No cost data yet. Add fuel logs or expenses to see totals.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    costRows.map((row) => (
+                    sortedCostRows.map((row) => (
                       <TableRow key={row.vehicleId}>
                         <TableCell className="font-medium">{row.registration}</TableCell>
                         <TableCell className="text-right">{formatCurrency(row.fuelCost)}</TableCell>
