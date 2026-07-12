@@ -102,8 +102,3 @@ Seed data reserves registration **Van-05** and driver **Alex** for the live demo
 
 More detail (and the full Q&A) is in [`docs/qa-crib-sheet.md`](docs/qa-crib-sheet.md).
 
-## Screenshots
-
-Not included in this pass — no browser/screenshot tooling was available when this README was
-last updated (2026-07-12). Capture a few before the real demo: dashboard, trips dispatch, and the
-analytics charts are the most useful three.
