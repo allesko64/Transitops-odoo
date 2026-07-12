@@ -44,3 +44,6 @@ MASTER_TRACKER.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# stray file created by some Windows/git-bash shells when redirecting to the NUL device
+/nul

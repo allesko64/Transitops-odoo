@@ -1,5 +1,9 @@
+"use client"
+
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
@@ -40,18 +44,77 @@ const buttonVariants = cva(
   }
 )
 
+type MagneticOptions = {
+  strength?: number
+  maxDistance?: number
+}
+
+function useMagnetic({ strength = 0.4, maxDistance = 24 }: MagneticOptions) {
+  const ref = React.useRef<HTMLSpanElement>(null)
+  const [position, setPosition] = React.useState({ x: 0, y: 0 })
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLSpanElement>) => {
+    if (!ref.current) return
+
+    const { width, height, left, top } = ref.current.getBoundingClientRect()
+    const { clientX, clientY } = event
+
+    let x = (clientX - (left + width / 2)) * strength
+    let y = (clientY - (top + height / 2)) * strength
+
+    const distance = Math.hypot(x, y)
+    if (distance > maxDistance) {
+      const scale = maxDistance / distance
+      x *= scale
+      y *= scale
+    }
+
+    setPosition({ x, y })
+  }
+
+  const handleMouseLeave = () => setPosition({ x: 0, y: 0 })
+
+  return { ref, position, handleMouseMove, handleMouseLeave }
+}
+
 function Button({
   className,
   variant = "default",
   size = "default",
+  magnetic,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /** Opt-in cursor-follow hover effect. Pass `true` for defaults or tune strength/maxDistance. */
+    magnetic?: boolean | MagneticOptions
+  }) {
+  const { ref, position, handleMouseMove, handleMouseLeave } = useMagnetic(
+    typeof magnetic === "object" ? magnetic : {}
+  )
+
+  const button = (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
+  )
+
+  if (!magnetic) {
+    return button
+  }
+
+  return (
+    <motion.span
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      animate={{ x: position.x, y: position.y }}
+      transition={{ type: "spring", stiffness: 150, damping: 25, mass: 0.1 }}
+      className="inline-flex"
+    >
+      {button}
+    </motion.span>
   )
 }
 
