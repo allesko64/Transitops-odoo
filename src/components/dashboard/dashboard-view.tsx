@@ -11,8 +11,10 @@ import {
 } from "@/components/dashboard/dashboard-filters";
 import { DashboardQuickActions } from "@/components/dashboard/dashboard-quick-actions";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { LicenseRemindersCard } from "@/components/dashboard/license-reminders-card";
 import type { AvailableVehicle, AvailableDriver } from "@/components/trips/trip-create-dialog";
 import type { EligibleVehicle } from "@/components/maintenance/maintenance-open-dialog";
+import type { LicenseReminder } from "@/lib/license-reminders";
 import {
   computeVehicleStatusCounts,
   computeTripStatusCounts,
@@ -40,6 +42,7 @@ export function DashboardView({
   tripVehicles,
   tripDrivers,
   maintenanceVehicles,
+  licenseReminders,
 }: {
   role: Role;
   vehicles: Vehicle[];
@@ -47,6 +50,7 @@ export function DashboardView({
   tripVehicles: AvailableVehicle[];
   tripDrivers: AvailableDriver[];
   maintenanceVehicles: EligibleVehicle[];
+  licenseReminders: LicenseReminder[];
 }) {
   const [filters, setFilters] = useState<DashboardFilterState>(EMPTY_FILTERS);
 
@@ -92,6 +96,8 @@ export function DashboardView({
       </div>
 
       <DashboardFilters filters={filters} onFiltersChange={setFilters} regions={regions} />
+
+      <LicenseRemindersCard reminders={licenseReminders} role={role} />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KpiCard label="Available Vehicles" value={vehicleCounts.available} />

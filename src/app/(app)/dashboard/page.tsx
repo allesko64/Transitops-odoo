@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { vehicles, trips, drivers } from "@/db/schema";
 import { requirePageRole } from "@/lib/rbac";
+import { computeLicenseReminders } from "@/lib/license-reminders";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export default async function DashboardPage() {
@@ -39,6 +40,8 @@ export default async function DashboardPage() {
     .filter((v) => v.status === "available")
     .map((v) => ({ id: v.id, registrationNumber: v.registrationNumber }));
 
+  const licenseReminders = computeLicenseReminders(allDrivers, today);
+
   return (
     <DashboardView
       role={session.role}
@@ -47,6 +50,7 @@ export default async function DashboardPage() {
       tripVehicles={tripVehicles}
       tripDrivers={tripDrivers}
       maintenanceVehicles={maintenanceVehicles}
+      licenseReminders={licenseReminders}
     />
   );
 }

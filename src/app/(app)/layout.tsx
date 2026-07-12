@@ -20,14 +20,14 @@ export default async function AppLayout({
   return (
     <div className="flex flex-1 flex-col">
       <Topbar name={session.user.name} role={role} />
-      <div className="border-b md:hidden">
+      <div className="border-b md:hidden print:hidden">
         <SidebarNav role={role} mobile />
       </div>
       <div className="flex flex-1">
-        <aside className="hidden w-56 border-r md:block">
+        <aside className="hidden w-56 border-r md:block print:hidden">
           <SidebarNav role={role} />
         </aside>
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6 print:p-0">{children}</main>
       </div>
     </div>
   );

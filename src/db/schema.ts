@@ -187,6 +187,20 @@ export const expenses = pgTable(
   (table) => [check("expense_amount_positive", sql`${table.amount} > 0`)]
 );
 
+// Bonus B5 — added after the Phase 0 freeze; link-based (no file storage set up), additive only.
+export const vehicleDocuments = pgTable("vehicle_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  vehicleId: uuid("vehicle_id")
+    .notNull()
+    .references(() => vehicles.id),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  expiryDate: date("expiry_date", { mode: "string" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type Vehicle = typeof vehicles.$inferSelect;
 export type NewVehicle = typeof vehicles.$inferInsert;
 export type Driver = typeof drivers.$inferSelect;
@@ -199,3 +213,5 @@ export type FuelLog = typeof fuelLogs.$inferSelect;
 export type NewFuelLog = typeof fuelLogs.$inferInsert;
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
+export type VehicleDocument = typeof vehicleDocuments.$inferSelect;
+export type NewVehicleDocument = typeof vehicleDocuments.$inferInsert;
