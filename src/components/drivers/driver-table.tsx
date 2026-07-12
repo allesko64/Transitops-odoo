@@ -163,7 +163,7 @@ export function DriverTable({ drivers }: { drivers: Driver[] }) {
 
       <DriverFilters filters={filters} onFiltersChange={setFilters} />
 
-      <div className="rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

@@ -15,6 +15,8 @@ import {
 import { SortHeader, type SortDirection } from "@/components/ui/sort-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels/finance";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { computeCostPerVehicle, type CostRow } from "@/lib/analytics";
 import {
   FinanceFilters,
   ALL_VALUE,
@@ -22,6 +24,7 @@ import {
 } from "@/components/finance/finance-filters";
 import { FuelLogFormDialog } from "@/components/finance/fuel-log-form-dialog";
 import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 
 const EMPTY_FILTERS: FinanceFilterState = {
   search: "",
@@ -29,20 +32,6 @@ const EMPTY_FILTERS: FinanceFilterState = {
   dateFrom: "",
   dateTo: "",
 };
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatCurrency(value: string | number) {
-  const num = typeof value === "string" ? parseFloat(value) : value;
-  return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function filterByVehicleAndDate<T extends { vehicleId: string; date: string }>(
   items: T[],
@@ -87,49 +76,6 @@ function buildTripMap(trips: Trip[]) {
     map.set(t.id, `${t.origin} → ${t.destination}`);
   }
   return map;
-}
-
-// Cost per vehicle calculation
-type CostRow = {
-  vehicleId: string;
-  registration: string;
-  fuelCost: number;
-  expenseCost: number;
-  totalCost: number;
-};
-
-function computeCostPerVehicle(
-  fuelLogs: FuelLog[],
-  expenses: Expense[],
-  vehicleMap: Map<string, string>
-): CostRow[] {
-  const map = new Map<string, CostRow>();
-
-  for (const [id, reg] of vehicleMap) {
-    map.set(id, { vehicleId: id, registration: reg, fuelCost: 0, expenseCost: 0, totalCost: 0 });
-  }
-
-  for (const fl of fuelLogs) {
-    const row = map.get(fl.vehicleId);
-    if (row) {
-      row.fuelCost += parseFloat(fl.cost);
-    }
-  }
-
-  for (const ex of expenses) {
-    const row = map.get(ex.vehicleId);
-    if (row) {
-      row.expenseCost += parseFloat(ex.amount);
-    }
-  }
-
-  for (const row of map.values()) {
-    row.totalCost = row.fuelCost + row.expenseCost;
-  }
-
-  return Array.from(map.values())
-    .filter((r) => r.totalCost > 0)
-    .sort((a, b) => b.totalCost - a.totalCost);
 }
 
 export function FinanceTabs({
@@ -254,7 +200,7 @@ export function FinanceTabs({
   }, [filteredExpenses, expSortKey, expSortDir, vehicleMap, tripMap]);
 
   const costRows = useMemo(
-    () => computeCostPerVehicle(fuelLogs, expenses, vehicleMap),
+    () => computeCostPerVehicle(fuelLogs, expenses, vehicleMap).filter((r) => r.totalCost > 0),
     [fuelLogs, expenses, vehicleMap]
   );
 
@@ -294,14 +240,17 @@ export function FinanceTabs({
                 onFiltersChange={setFuelFilters}
                 vehicles={vehicles}
               />
-              <FuelLogFormDialog
-                trigger={<Button>Add Fuel Log</Button>}
-                vehicles={vehicles}
-                trips={trips}
-              />
+              <div className="flex gap-2">
+                <ExportCsvButton href="/api/export/fuel" />
+                <FuelLogFormDialog
+                  trigger={<Button>Add Fuel Log</Button>}
+                  vehicles={vehicles}
+                  trips={trips}
+                />
+              </div>
             </div>
 
-            <div className="rounded-xl border">
+            <div className="overflow-x-auto rounded-xl border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -387,14 +336,17 @@ export function FinanceTabs({
                 onFiltersChange={setExpenseFilters}
                 vehicles={vehicles}
               />
-              <ExpenseFormDialog
-                trigger={<Button>Add Expense</Button>}
-                vehicles={vehicles}
-                trips={trips}
-              />
+              <div className="flex gap-2">
+                <ExportCsvButton href="/api/export/expenses" />
+                <ExpenseFormDialog
+                  trigger={<Button>Add Expense</Button>}
+                  vehicles={vehicles}
+                  trips={trips}
+                />
+              </div>
             </div>
 
-            <div className="rounded-xl border">
+            <div className="overflow-x-auto rounded-xl border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -483,7 +435,10 @@ export function FinanceTabs({
         {/* Cost per Vehicle Tab */}
         <TabsContent value={2}>
           <div className="grid gap-4">
-            <div className="rounded-xl border">
+            <div className="flex justify-end">
+              <ExportCsvButton href="/api/export/cost-summary" />
+            </div>
+            <div className="overflow-x-auto rounded-xl border">
               <Table>
                 <TableHeader>
                   <TableRow>

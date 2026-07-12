@@ -36,6 +36,7 @@ import {
   type AvailableDriver,
 } from "@/components/trips/trip-create-dialog";
 import { TripCompleteDialog } from "@/components/trips/trip-complete-dialog";
+import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { TRIP_STATUS_LABELS, TRIP_STATUS_TONES } from "@/lib/labels/trip";
 
 export type TripRow = {
@@ -100,11 +101,14 @@ export function TripTable({
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Trips</h1>
-        <TripCreateDialog
-          trigger={<Button>Create Trip</Button>}
-          vehicles={availableVehicles}
-          drivers={availableDrivers}
-        />
+        <div className="flex gap-2">
+          <ExportCsvButton href="/api/export/trips" />
+          <TripCreateDialog
+            trigger={<Button>Create Trip</Button>}
+            vehicles={availableVehicles}
+            drivers={availableDrivers}
+          />
+        </div>
       </div>
 
       <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? ALL_VALUE)}>
@@ -121,7 +125,7 @@ export function TripTable({
         </SelectContent>
       </Select>
 
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
