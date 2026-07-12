@@ -50,40 +50,50 @@ export function UserRoleTable({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Role</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {users.map((u) => (
-          <TableRow key={u.id}>
-            <TableCell>{u.name}</TableCell>
-            <TableCell>{u.email}</TableCell>
-            <TableCell>
-              <Select
-                value={u.role}
-                onValueChange={(value) => handleRoleChange(u.id, value as Role)}
-                disabled={isPending || u.id === currentUserId}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </TableCell>
+    <div className="overflow-x-auto rounded-xl border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Role</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {users.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                No users yet.
+              </TableCell>
+            </TableRow>
+          ) : (
+            users.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell>{u.name}</TableCell>
+                <TableCell>{u.email}</TableCell>
+                <TableCell>
+                  <Select
+                    value={u.role}
+                    onValueChange={(value) => handleRoleChange(u.id, value as Role)}
+                    disabled={isPending || u.id === currentUserId}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
